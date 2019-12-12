@@ -22,7 +22,7 @@ import './index.css';
 
 let Block = Quill.import('blots/block');
 class DivBlock extends Block { }
-DivBlock.tagName = 'div';
+DivBlock.tagName = '';
 Quill.register(DivBlock);
 //Cap # of entires based on install param
 //for grid, set Sortable List axis to xy. need to have different CSS to resize the areas
