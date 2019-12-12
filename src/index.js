@@ -115,16 +115,7 @@ export default class MainContent extends React.Component {
 		super(props);
 		this.handleRTEchange = this.handleRTEchange.bind(this)
 		this.clearAndSave = this.clearAndSave.bind(this)
-	    this.quillRef = null;      // Quill instance
-	    this.reactQuillRef = null; // ReactQuill component
 			
-	}
-	componentDidMount() {
-		this.attachQuillRefs()
-	}
-	
-	componentDidUpdate() {
-		this.attachQuillRefs()
 	}
 	componentWillMount(){
 	  this.props.sdk.window.updateHeight();
@@ -139,10 +130,7 @@ export default class MainContent extends React.Component {
 		  	target:{id:'',index:null,body:{content:'',headline:''}},
 		  	})
 	}
-	attachQuillRefs = () => {
-	    if (typeof this.reactQuillRef.getEditor !== 'function') return;
-	    this.quillRef = this.reactQuillRef.getEditor();
-	  }
+	
 	onSortEnd = ({oldIndex, newIndex}) => {	  
 		this.setState(({items}) => ({
 	      items: arrayMove(items, oldIndex, newIndex),
