@@ -7,6 +7,7 @@ import update from 'immutability-helper';
 import arrayMove from 'array-move';
 import ReactQuill, {Quill} from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import 'react-quill/dist/quill.bubble.css';
 import {
 	CardDragHandle,
 	EntryCard, 
@@ -18,12 +19,14 @@ import {
 	TextField,
 	Icon } from '@contentful/forma-36-react-components';
 import '@contentful/forma-36-react-components/dist/styles.css';
+import Overview from './components/section-overview/index';
 import './index.css'; 
 
 let Block = Quill.import('blots/block');
-class DivBlock extends Block { }
-DivBlock.tagName = 'span';
-Quill.register(DivBlock);
+class TextBlock extends Block { }
+TextBlock.tagName = 'l';
+Quill.register(TextBlock);
+
 //Cap # of entires based on install param
 //for grid, set Sortable List axis to xy. need to have different CSS to resize the areas
  //truncate P content after xx numbver of words/characters
@@ -55,8 +58,8 @@ const SortableItem = SortableElement((props) => {
 		<div className="Item" >
 			<DragHandle/>
 			<div>
-				<h3>{props.child.body.headline}</h3>
-				<div dangerouslySetInnerHTML={{ __html:props.child.body.content}}/>
+				<h3 dangerouslySetInnerHTML={{ __html:props.child.fields.headline}}/>
+				<p dangerouslySetInnerHTML={{ __html:props.child.fields.content}}/>
 			</div>
 
 			<div className="buttonArea">
@@ -76,7 +79,7 @@ const SortableItem = SortableElement((props) => {
 
 	)
 });
-
+//add items length check. if it matches, hide add button. 
 const SortableList = SortableContainer((props) => {
 
 	return (
@@ -113,22 +116,16 @@ export default class MainContent extends React.Component {
 	};
 	constructor(props) {
 		super(props);
-		this.handleRTEchange = this.handleRTEchange.bind(this)
-		this.clearAndSave = this.clearAndSave.bind(this)
+		this.handleRTEchange = this.handleRTEchange.bind(this);
+		this.handleRemoveModal = this.handleRemoveModal.bind(this)
+		this.clearAndSave = this.clearAndSave.bind(this);
+		this.state=this.props.sdk.field.getValue();
+
 			
 	}
 	componentWillMount(){
 	  this.props.sdk.window.updateHeight();
 	  this.props.sdk.window.startAutoResizer();
-	  this.setState(this.props.sdk.field.getValue())
-	  this.setState({
-		  overview:{
-			  headline:'',
-			  content:''
-		  },
-		  	modal:{shown:false},
-		  	target:{id:'',index:null,body:{content:'',headline:''}},
-		  	})
 	}
 	
 	onSortEnd = ({oldIndex, newIndex}) => {	  
@@ -141,7 +138,7 @@ export default class MainContent extends React.Component {
   	handleAddItem=()=>{
 		const {items} = this.state;//destructure, pull items object out
 		const newId = 'item-'+[...Array(5)].map(_=>(Math.random()*36|0).toString(36)).join('');
-		const newObj = {"id":newId	,"body":{"content":"","headline":"..."}}
+		const newObj = {"id":newId	,"fields":{"content":"","headline":"..."}}
 		const AddState = [...items, newObj]//add new item to items object
 		this.setState({items:AddState},this.handleEditModal({id:newObj.id, childIndex:(items.length), child:newObj}));
 
@@ -156,10 +153,10 @@ export default class MainContent extends React.Component {
 			  		},
 		  		items:{
 			  		[props.index]:
-			  		{body:
+			  		{fields:
 				  		{
-				  		content:{$set:target.body.content},
-				  		headline:{$set:target.body.headline}
+				  		content:{$set:target.fields.content},
+				  		headline:{$set:target.fields.headline}
 				  		}
 				  	}
 		  		}
@@ -168,6 +165,7 @@ export default class MainContent extends React.Component {
 	}
 	//TODO: combine this and handleRemoveModal, since both are just setting states
 	handleEditModal=(props)=>{
+		console.log(props)
 		const modalSet = update(
 			this.state,{
 				modal:{
@@ -181,33 +179,61 @@ export default class MainContent extends React.Component {
 				target:{
 					index:{$set:props.childIndex},
 					id:{$set:props.id},
-					body:{
-						headline:{$set:props.child.body.headline},
-						content:{$set:props.child.body.content}
+					fields:{
+						headline:{$set:props.child.fields.headline},
+						content:{$set:props.child.fields.content}
 					}
 				}
 			
-		  	})
-	  	this.setState(modalSet)
+		  	}
+		  	)
+		  	this.setState({...modalSet})
 		  	
 	}
+	handleRemoveModal=(props)=>{
+	  	const modalSet = update(
+		  	this.state,{
+			  	modal:{
+				  	shown:{$set:true},
+				  	type:{$set:'delete'},
+				  	title: {$set:"Confirm Entry Removal"},
+				  	intent:{$set:"negative"},
+				  	confirm:{$set:"Confirm Entry Removal"},
+				  	}, 
+			  	target:{
+				  	index:{$set:props.childIndex},
+				  	id:{$set:''},
+				  	fields:{
+					  	content:{$set:''},
+					  	headline:{$set:''}
+					  	}
+				  	}
+				 }
+	
+		  	)
+
+	  	this.setState({...modalSet})
+	}	
+
 	handleFieldChange(event){
 		const {name, value} = event.target
 		const updates = update(this.state,{
 			target:{
-				body:{
+				fields:{
 					[name]:{$set:value}
 				}
 			}
 		})
 		this.setState(updates)
 	}
-	handleRTEchange(value){
+	handleRTEchange(value, parent, field){
+		console.log(parent+' parent')
 		let target = {...this.state.target}
+
 		const changed = update(this.state,{
-			target:{
-				body:{
-					content:{
+			[parent]:{
+				fields:{
+					[field]:{
 						$set:value
 					}
 				}
@@ -216,29 +242,7 @@ export default class MainContent extends React.Component {
 		this.setState(changed);
 	}
 	
-  	handleRemoveModal=(props)=>{
-	  	const modalSet = update(this.state,{
-		  	modal:{
-			  	shown:{$set:true},
-			  	type:{$set:'delete'},
-			  	title: {$set:"Confirm Entry Removal"},
-			  	intent:{$set:"negative"},
-			  	confirm:{$sert:"Confirm Entry Removal"},
-			  	}, 
-		  	target:{
-			  	index:{$set:props.childIndex},
-			  	id:{$set:''},
-			  	body:{
-				  	content:{$set:''},
-				  	headline:{$set:''}
-				  	}
-			  	}
-			 }
-
-	  	)
-	  	this.setState({modalSet})
-	}	
-  	handleRemove=(props)=>{
+    handleRemove=(props)=>{
 	  	const removal = update(this.state,{
 	  		items:{$splice:[[props.index,1]]}	
 	  		} )
@@ -259,7 +263,7 @@ export default class MainContent extends React.Component {
 		  	target:{
 			  	id:{$set:''},
 			  	index:{$set:''},
-			  	body:{
+			  	fields:{
 				  	content:{$set:''},
 				  	headline:{$set:''}
 			  	}}
@@ -267,24 +271,30 @@ export default class MainContent extends React.Component {
 	  	this.setState(clear)
 	  	if(save===true)this.props.sdk.field.setValue(this.state)
   	}
-  	//add alloy inline to textarea
+  	//prefill each with the base tag... H3, P, etc
   	renderSwitch(param) {
 	  switch(param) {
 	    case 'edit':
 	  		return(
 		  		<Form onSubmit={this.onHandleEdit}>
 			  		<ReactQuill 
-			  		name="heading" 
-			  		value={this.state.target.body.heading||''}
-			  		onChange={(value)=>this.handleRTEchange(value)} 
-			  		modules={this.modules}
+			  		name="headline" 
+			  		className="value-item item-heading"
+			  		value={this.state.target.fields.headline||''}
+			  		defaultValue={'<h3></h3>'}
+			  		onChange={(value)=>this.handleRTEchange(value,'target','headline')} 
+			  		modules={this.modulesBubble}
+			  		theme="bubble"
 			  		/>
 			  		
 			  		<ReactQuill 
 			  		name="content" 
-			  		value={this.state.target.body.content||''}
-			  		onChange={(value)=>this.handleRTEchange(value)} 
-			  		modules={this.modules}
+			  		className="value-item item-content"
+			  		value={this.state.target.fields.content||''}
+			  		defaultValue={'<p></p>'}
+			  		onChange={(value)=>this.handleRTEchange(value,'target','content')} 
+			  		modules={this.modulesBubble}
+			  		theme="bubble"
 			  		/>
 			  		
 		  		</Form>
@@ -297,37 +307,28 @@ export default class MainContent extends React.Component {
 		break;	  
 		}
 	}
+	modulesBubble = {
+		toolbar: [
+			['bold', 'italic', {'script':'super'}],
+			['clean']
+		    ]
+    }
 	 modules = {
 		toolbar: [
 			['bold', 'italic', {'script':'super'}],
-	      [{'list': 'ordered'}, {'list': 'bullet'}],
-	      ['clean']
-		    ],
-	  }
+			[{'list': 'ordered'}, {'list': 'bullet'}],
+			['clean']
+		    ]
+	}
   	render() {
 	    return (
 		    <>
-		    <div className="overview">
-			   <TextField
-			   		className="overview-headline"
-				    name="overview-headline"
-				    id="overview-headline"
-				    labelText="Headline"
-				    value={this.state.overview.headline}
-				    onChange={console.log('blur')}
-				    textInputProps={{
-				    	placeholder: "Main Content Headline",
-				        maxLength: 50,
-				    }}
-			  	/>
-			  	<label class="FormLabel__FormLabel___3d6zQ" data-test-id="cf-ui-form-label" for="overview-content">Introduction</label>
-			  	<ReactQuill 
-			  		name="overview-content" 
-			  		value={this.state.overview.content||''}
-			  		onChange={console.log('content')} 
-			  		modules={this.modules}
-		  		/>
-		  	</div>
+		    <Overview
+		    	modulesBubble={this.modulesBubble}
+		    	modules={this.modules}
+		    	handleRTEChange = {()=>this.handleRTEChange}
+		    	overview = {this.state.overview}
+	    	/>
 		    <SortableList 
 			    items={this.state.items} 
 			    onSortEnd={this.onSortEnd} 
